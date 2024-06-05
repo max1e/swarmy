@@ -14,15 +14,13 @@ const fat = 1
 
 class Wall {
     constructor(x1, y1, x2, y2){
-        this.x1 = x1
-        this.y1 = y1
-        this.x2 = x2
-        this.y2 = y2
+        this.A = createVector(x1, y1)
+        this.B = createVector(x2, y2)
     }
 
-    draw(){
+    draw() {
         strokeWeight(5)
-        line(this.x1, this.y1, this.x2, this.y2)
+        line(this.A.x, this.A.y, this.B.x, this.B.y)
     }
 }
 
@@ -57,10 +55,8 @@ class Particle {
     }
 
 
-    calculateParticleRepulsiveForce() {
-        const A = 0.36;
-        const B = 1.06;
-        let repulsiveForce = createVector(0, 0);  // Initialize force as a 2D vector
+    calculateParticleRepulsiveForce(A, B) {
+        let repulsiveForce = createVector(0, 0);
     
         for (let other of Scene.swarm) {
             if (other === this)
@@ -71,20 +67,61 @@ class Particle {
             if (distance < this.size)  // Avoid division by zero or negative forces when too close
                 continue;
     
-            const repulsive_component = A * B * Math.pow(distance - this.size, -B - 1);
-
             const direction = p5.Vector.sub(this.position, other.position).normalize();
-            const repulsion = p5.Vector.mult(direction, repulsive_component)
+            const strength = A * (distance - this.size) ** -B;
+            const repulsion = p5.Vector.mult(direction, strength)
     
-            repulsiveForce.add(repulsion);  // Sum up the forces
+            repulsiveForce.add(repulsion);
         }
+
         return repulsiveForce;
     }
 
-    calculateWallRepulsiveForce() {
-        
+    calculateWallRepulsiveForce(A, B) {
+        let nearestWall = this.findNearestWall();
+        let distance = dist(this.position.x, this.position.y, nearestWall.x, nearestWall.y);
+
+        if (distance < this.size / 2) {
+            distance = this.size / 2;
+        }
+
+        const direction = p5.Vector.sub(this.position, nearestWall).normalize();
+        const strength = A * (distance - this.size / 2) ** -B;
+        const repulsion = p5.Vector.mult(direction, strength)
+
+        return repulsion;
     }
-    
+
+    findNearestWall() {
+        let closestWall = createVector(0, 0)
+        for (let wall of Scene.walls) {
+            const closestPoint = this.closestPointOnLine(wall.A, wall.B, this.position)
+            if (dist(this.position, closestPoint) < dist(this.position, closestWall)) {
+                closestWall = closestPoint
+            }
+        }
+        return closestWall
+    }
+
+    // Fucntion from ChatGPT
+    closestPointOnLine(A, B, P) {
+        // Vector AB
+        let AB = p5.Vector.sub(B, A);
+      
+        // Vector AP
+        let AP = p5.Vector.sub(P, A);
+      
+        // Project vector AP onto AB
+        let t = AP.dot(AB) / AB.dot(AB);
+      
+        // Clamp t to the range [0, 1] to get the closest point on the line segment
+        t = constrain(t, 0, 1);
+      
+        // Calculate the closest point
+        let closest = p5.Vector.add(A, AB.mult(t));
+        
+        return closest;
+      }
 
     step() {
         // Retention of motion
@@ -93,21 +130,26 @@ class Particle {
         // Particle cloud optimisation
         const r1 = random(0, 1);
         const r2 = random(0, 1);
-
+        
         const personalBestTerm = p5.Vector.sub(this.personalBest, this.position).mult(this.c1 * r1);
         const globalBestTerm = p5.Vector.sub(Scene.globalBest, this.position).mult(this.c2 * r2);
 
         // Social forces
-        const particleRepulsionForce = this.calculateParticleRepulsiveForce()
-        const wallRepulsionForce = 0
+        const A = 5;
+        const B = 1.06;
 
-        this.velocity = p5.Vector.add(currentVelocityTerm, personalBestTerm).add(globalBestTerm).add(particleRepulsionForce);
+        const particleRepulsionForce = this.calculateParticleRepulsiveForce(A, B)
+        const wallRepulsionForce = this.calculateWallRepulsiveForce(A, B)
 
-
-        // Restrictions
-        this.avoidWalls();
+        this.velocity = p5.Vector.add(currentVelocityTerm, personalBestTerm)
+                                .add(globalBestTerm)
+                                .add(particleRepulsionForce)
+                                .add(wallRepulsionForce);
         
+        // Restrictions
         this.velocity.limit(this.max_speed);
+        // this.position.add(this.velocity)
+
         let new_x = this.position.x + this.velocity.x;
         let new_y = this.position.y + this.velocity.y;
 
@@ -124,8 +166,8 @@ class Particle {
 
         //     const distance = dist(this.position.x, this.position.y, other.position.x, other.position.y);
         //     const minDist = 5;
-        //     if (distance < minDist) {
-        //         const overlap = minDist - distance;
+        //     if (distance < this.size) {
+        //         const overlap = this.size - distance;
         //         const angle = atan2(this.position.y - other.position.y, this.position.x - other.position.x);
         //         this.position.x += cos(angle) * overlap;
         //         this.position.y += sin(angle) * overlap;
@@ -145,31 +187,6 @@ class Particle {
                 Scene.globalBest = this.personalBest.copy();
             }
         }
-
-        // let acceleration = mass * (((this.max_speed * direction) - velocity) / relaxation_time)
-        // const A = 1
-        // const B = 1
-
-        // const distance = dist(this.position.x, this.position.y, other.position.x, other.position.y);
-
-        // let particle_repulsion = 0
-        // for (other in Scene.swarm) {
-        //     if (other === this) continue;
-        //     summie += -A*(distance - fat)^-B
-        // }
-    }
-
-    avoidWalls() {
-        for (let wall of Scene.walls) {
-            let wallCenter = createVector((wall.x1 + wall.x2) / 2, (wall.y1 + wall.y2) / 2);
-            let distance = dist(this.position.x, this.position.y, wallCenter.x, wallCenter.y);
-            let minDist = 50; // Distance threshold for wall avoidance
-            if (distance < minDist) {
-                let repulseForce = p5.Vector.sub(this.position, wallCenter);
-                repulseForce.setMag((minDist - distance) / minDist * this.max_speed * 2); // Increase the strength of the repulsive force
-                this.velocity.add(repulseForce);
-            }
-        }
     }
 }
 
@@ -177,8 +194,8 @@ class Particle {
 // Check if X can be updated without collisions (assumes walls are defined with lowest values first)
 function canUpdateX(new_x, current_pos) {
     for (let wall of Scene.walls) {
-        if (current_pos.y > wall.y1 - 5 && current_pos.y < wall.y2 + 5) {
-            if (new_x > wall.x1 - 5 && new_x < wall.x2 + 5) {
+        if (current_pos.y > wall.A.y - 5 && current_pos.y < wall.B.y + 5) {
+            if (new_x > wall.A.x - 5 && new_x < wall.B.x + 5) {
                 return false;
             }
         }
@@ -189,8 +206,8 @@ function canUpdateX(new_x, current_pos) {
 // Check if Y can be updated without collisions (assumes walls are defined with lowest values first)
 function canUpdateY(new_y, current_pos) {
     for (let wall of Scene.walls) {
-        if (current_pos.x > wall.x1 - 5 && current_pos.x < wall.x2 + 5) {
-            if (new_y > wall.y1 - 5 && new_y < wall.y2 + 5) {
+        if (current_pos.x > wall.A.x - 5 && current_pos.x < wall.B.x + 5) {
+            if (new_y > wall.A.y - 5 && new_y < wall.B.y + 5) {
                 return false;
             }
         }
@@ -205,19 +222,17 @@ function objective_function(x, y){
 }
 
 function setup(){
-    Scene.swarm = []
-    Scene.walls = []
-  
 	createCanvas( Scene.width, Scene.height )
-    
-    // Create walls
-    Scene.walls.push (new Wall(100, 100, 500, 100))
-    Scene.walls.push (new Wall(100, 100, 100, 500))
-    Scene.walls.push (new Wall(100, 500, 500, 500))
-    
-    Scene.walls.push (new Wall(500, 100, 500, 275))
-    Scene.walls.push (new Wall(500, 325, 500, 500))
-  
+
+    Scene.walls = [
+        new Wall(100, 100, 500, 100),
+        new Wall(100, 100, 100, 500),
+        new Wall(100, 500, 500, 500),
+        new Wall(500, 100, 500, 275),
+        new Wall(500, 325, 500, 500)
+    ]
+
+    Scene.swarm = []
 	for (let i = 0; i < Scene.N; i++){
         Scene.swarm.push(new Particle())
 	}
@@ -225,21 +240,20 @@ function setup(){
 
 function draw(){
 	background(220)
-    
-    run_model()
-}
 
-function run_model(){
+    for (let wall of Scene.walls) {
+        wall.draw()
+    }
+    
     for(let particle of Scene.swarm){
         particle.step()
         particle.draw()
     }
-      
-    for (let wall of Scene.walls) {
-        wall.draw()
-    }
-      
-    // Print the target spot as a red dot
+
+    drawTarget()
+}
+
+function drawTarget(){
     strokeWeight(0)
     fill( 255, 0, 0 )
     ellipse( Scene.target[0], Scene.target[1], 7, 7 )
