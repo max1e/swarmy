@@ -1,4 +1,3 @@
-
 let Scene = {
     width : 600, 
     height : 600, 
@@ -48,7 +47,6 @@ class Particle {
             Scene.globalBest = this.personalBest.copy(); // Global best position
         }
     }
-
     
     draw() {
         strokeWeight(fat);
