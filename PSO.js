@@ -9,8 +9,7 @@ let Scene = {
     gbest_obj : Infinity
 }
 
-const fat = 1
-
+const FAT = 5
 
 class Wall {
     constructor(x1, y1, x2, y2){
@@ -27,16 +26,20 @@ class Wall {
 class Particle {
 
     constructor() {
-        this.size = 5
+        this.SIZE = FAT
+        this.MAX_SPEED = 2;
+
+        this.WEIGHT = 0.8; // parameter adjusting how much particle retains its speed/direction
+
+        this.C1 = 1.5; // Cognitive coefficient: weight for particle's best
+        this.C2 = 1.5; // Social coefficient: weight for swarm's best
+
+        this.A = 0.1 // Particle/wall repulsion strength
+        this.B = 0.2 // Particle/wall repulsion retention rate
 
         this.position = createVector(random(105, Scene.width - 105), random(105, Scene.height - 105));
         this.velocity = createVector(random(-1, 1), random(-1, 1));
-        this.max_speed = 2;
 
-        this.c1 = 1.5; // Cognitive coefficient: weight for particle's best
-        this.c2 = 1.5; // Social coefficient: weight for swarm's best
-
-        this.weight = 0.8; // Weight constant: how much particle keeps speed/direction
 
         this.personalBest = this.position.copy(); // Personal best position
         this.pbest_obj = objective_function(this.personalBest.x, this.personalBest.y); // Score of personal best position
@@ -46,14 +49,83 @@ class Particle {
             Scene.globalBest = this.personalBest.copy(); // Global best position
         }
     }
-
     
     draw() {
-        strokeWeight(fat);
+        strokeWeight(this.SIZE);
         fill(0);
-        ellipse(this.position.x, this.position.y, this.size, this.size);
+        ellipse(this.position.x, this.position.y, this.SIZE, this.SIZE);
+    }
+    
+    step() {
+        this.velocity = this.calculateVelocity()
+        
+        // this.position.add(this.velocity)
+        let new_x = this.position.x + this.velocity.x;
+        let new_y = this.position.y + this.velocity.y;
+
+        if (this.canUpdateX(new_x, this.position)) {
+            this.position.x = new_x;
+        }
+        if (this.canUpdateY(new_y, this.position)) {
+            this.position.y = new_y;
+        }
+
+        // Mob interaction
+        // for (let other of Scene.swarm) {
+        //     if (other === this) continue;
+
+        //     const distance = dist(this.position.x, this.position.y, other.position.x, other.position.y);
+        //     const minDist = 5;
+        //     if (distance < this.size) {
+        //         const overlap = this.size - distance;
+        //         const angle = atan2(this.position.y - other.position.y, this.position.x - other.position.x);
+        //         this.position.x += cos(angle) * overlap;
+        //         this.position.y += sin(angle) * overlap;
+        //     }
+        // }
+
+        this.position.x = constrain(this.position.x, 0, Scene.width);
+        this.position.y = constrain(this.position.y, 0, Scene.height);
+
+        this.updateBestPosition()
     }
 
+    calculateVelocity() {
+        // Retention of motion
+        const currentVelocityTerm = p5.Vector.mult(this.velocity, this.WEIGHT);
+
+        // Particle cloud optimisation
+        const r1 = random(0, 1);
+        const r2 = random(0, 1);
+        
+        const personalBestTerm = p5.Vector.sub(this.personalBest, this.position).mult(this.C1 * r1);
+        const globalBestTerm = p5.Vector.sub(Scene.globalBest, this.position).mult(this.C2 * r2);
+
+        // Social forces
+        const particleRepulsionForce = this.calculateParticleRepulsiveForce(this.A, this.B)
+        const wallRepulsionForce = this.calculateWallRepulsiveForce(this.A, this.B)
+
+        let velocity =  p5.Vector.add(currentVelocityTerm, personalBestTerm)
+                                .add(globalBestTerm)
+                                .add(particleRepulsionForce)
+                                .add(wallRepulsionForce);
+
+        velocity = velocity.limit(this.MAX_SPEED)
+        return velocity
+    }
+
+    updateBestPosition() {
+        let new_obj = objective_function(this.position.x, this.position.y);
+        if (new_obj < this.pbest_obj) {
+            this.personalBest = this.position.copy();
+            this.pbest_obj = new_obj;
+
+            if (this.pbest_obj < Scene.gbest_obj) {
+                Scene.globalBest = this.personalBest.copy();
+                Scene.gbest_obj = this.pbest_obj;
+            }
+        }
+    }
 
     calculateParticleRepulsiveForce(A, B) {
         let repulsiveForce = createVector(0, 0);
@@ -64,12 +136,12 @@ class Particle {
     
             const distance = dist(this.position.x, this.position.y, other.position.x, other.position.y);
     
-            if (distance < this.size)  // Avoid division by zero or negative forces when too close
+            if (distance < this.SIZE)  // Avoid division by zero or negative forces when too close
                 continue;
     
             const direction = p5.Vector.sub(this.position, other.position).normalize();
-            const strength = A * (distance - this.size) ** -B;
-            const repulsion = p5.Vector.mult(direction, strength)
+            const magnitude = A * (distance - this.SIZE) ** B;
+            const repulsion = p5.Vector.mult(direction, magnitude)
     
             repulsiveForce.add(repulsion);
         }
@@ -78,16 +150,16 @@ class Particle {
     }
 
     calculateWallRepulsiveForce(A, B) {
-        let nearestWall = this.findNearestWall();
-        let distance = dist(this.position.x, this.position.y, nearestWall.x, nearestWall.y);
+        const nearestWall = this.findNearestWall();
+        const distance = dist(this.position.x, this.position.y, nearestWall.x, nearestWall.y);
 
-        if (distance < this.size / 2) {
-            distance = this.size / 2;
+        if (distance < this.SIZE / 2) {
+            distance = this.SIZE / 2;
         }
 
         const direction = p5.Vector.sub(this.position, nearestWall).normalize();
-        const strength = A * (distance - this.size / 2) ** -B;
-        const repulsion = p5.Vector.mult(direction, strength)
+        const magnitude = (A * (distance - this.SIZE / 2) ** B) * 1000;
+        const repulsion = p5.Vector.mult(direction, magnitude)
 
         return repulsion;
     }
@@ -121,98 +193,31 @@ class Particle {
         let closest = p5.Vector.add(A, AB.mult(t));
         
         return closest;
-      }
-
-    step() {
-        // Retention of motion
-        const currentVelocityTerm = p5.Vector.mult(this.velocity, this.weight);
-
-        // Particle cloud optimisation
-        const r1 = random(0, 1);
-        const r2 = random(0, 1);
-        
-        const personalBestTerm = p5.Vector.sub(this.personalBest, this.position).mult(this.c1 * r1);
-        const globalBestTerm = p5.Vector.sub(Scene.globalBest, this.position).mult(this.c2 * r2);
-
-        // Social forces
-        const A = 5;
-        const B = 1.06;
-
-        const particleRepulsionForce = this.calculateParticleRepulsiveForce(A, B)
-        const wallRepulsionForce = this.calculateWallRepulsiveForce(A, B)
-
-        this.velocity = p5.Vector.add(currentVelocityTerm, personalBestTerm)
-                                .add(globalBestTerm)
-                                .add(particleRepulsionForce)
-                                .add(wallRepulsionForce);
-        
-        // Restrictions
-        this.velocity.limit(this.max_speed);
-        // this.position.add(this.velocity)
-
-        let new_x = this.position.x + this.velocity.x;
-        let new_y = this.position.y + this.velocity.y;
-
-        if (canUpdateX(new_x, this.position)) {
-            this.position.x = new_x;
-        }
-        if (canUpdateY(new_y, this.position)) {
-            this.position.y = new_y;
-        }
-
-        // Mob interaction
-        // for (let other of Scene.swarm) {
-        //     if (other === this) continue;
-
-        //     const distance = dist(this.position.x, this.position.y, other.position.x, other.position.y);
-        //     const minDist = 5;
-        //     if (distance < this.size) {
-        //         const overlap = this.size - distance;
-        //         const angle = atan2(this.position.y - other.position.y, this.position.x - other.position.x);
-        //         this.position.x += cos(angle) * overlap;
-        //         this.position.y += sin(angle) * overlap;
-        //     }
-        // }
-
-        this.position.x = constrain(this.position.x, 0, Scene.width);
-        this.position.y = constrain(this.position.y, 0, Scene.height);
-
-        let new_obj = objective_function(this.position.x, this.position.y);
-        if (new_obj < this.pbest_obj) {
-            this.personalBest = this.position.copy();
-            this.pbest_obj = new_obj;
-
-            if (this.pbest_obj < Scene.gbest_obj) {
-                Scene.gbest_obj = this.pbest_obj;
-                Scene.globalBest = this.personalBest.copy();
+    }
+      
+    // Check if X can be updated without collisions (assumes walls are defined with lowest values first)
+    canUpdateX(new_x) {
+        for (let wall of Scene.walls) {
+            if (this.position.y > wall.A.y - 5 && this.position.y < wall.B.y + 5) {
+                if (new_x > wall.A.x - 5 && new_x < wall.B.x + 5) {
+                    return false;
+                }
             }
         }
+        return true;
     }
-}
 
-
-// Check if X can be updated without collisions (assumes walls are defined with lowest values first)
-function canUpdateX(new_x, current_pos) {
-    for (let wall of Scene.walls) {
-        if (current_pos.y > wall.A.y - 5 && current_pos.y < wall.B.y + 5) {
-            if (new_x > wall.A.x - 5 && new_x < wall.B.x + 5) {
-                return false;
+    // Check if Y can be updated without collisions (assumes walls are defined with lowest values first)
+    canUpdateY(new_y) {
+        for (let wall of Scene.walls) {
+            if (this.position.x > wall.A.x - 5 && this.position.x < wall.B.x + 5) {
+                if (new_y > wall.A.y - 5 && new_y < wall.B.y + 5) {
+                    return false;
+                }
             }
         }
+        return true;
     }
-    return true;
-}
-
-// Check if Y can be updated without collisions (assumes walls are defined with lowest values first)
-function canUpdateY(new_y, current_pos) {
-    for (let wall of Scene.walls) {
-        if (current_pos.x > wall.A.x - 5 && current_pos.x < wall.B.x + 5) {
-            if (new_y > wall.A.y - 5 && new_y < wall.B.y + 5) {
-                return false;
-            }
-        }
-    }
-    return true;
 }
 
 
@@ -245,7 +250,7 @@ function draw(){
         wall.draw()
     }
     
-    for(let particle of Scene.swarm){
+    for (let particle of Scene.swarm) {
         particle.step()
         particle.draw()
     }
