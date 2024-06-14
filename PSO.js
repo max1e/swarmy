@@ -10,6 +10,8 @@ let Scene = {
 }
 
 const FAT = 5
+let halftime = false
+let finished = false
 
 class Wall {
     constructor(x1, y1, x2, y2){
@@ -151,7 +153,7 @@ class Particle {
 
     calculateWallRepulsiveForce(A, B) {
         const nearestWall = this.findNearestWall();
-        const distance = dist(this.position.x, this.position.y, nearestWall.x, nearestWall.y);
+        let distance = dist(this.position.x, this.position.y, nearestWall.x, nearestWall.y);
 
         if (distance < this.SIZE / 2) {
             distance = this.SIZE / 2;
@@ -256,10 +258,24 @@ function draw(){
     }
 
     drawTarget()
+
+    const escapedParticles = Scene.swarm.filter(it => it.position.x > 500)
+
+    if (!halftime && escapedParticles >= Scene.N / 2) {
+        print('Halftime: ' + millis())
+    }
+
+    if (!finished && escapedParticles >= Scene.N) {
+        print('Finished: ' + millis())
+    }
 }
 
-function drawTarget(){
+function drawTarget() {
     strokeWeight(0)
     fill( 255, 0, 0 )
     ellipse( Scene.target[0], Scene.target[1], 7, 7 )
+}
+
+function performExperiment() {
+    
 }
