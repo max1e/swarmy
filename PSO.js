@@ -36,7 +36,7 @@ class Particle {
         this.C1 = 1.5; // Cognitive coefficient: weight for particle's best
         this.C2 = 1.5; // Social coefficient: weight for swarm's best
 
-        this.A = 0.1 // Particle/wall repulsion strength
+        this.A = 0.05 // Particle/wall repulsion strength
         this.B = 0.2 // Particle/wall repulsion retention rate
 
         this.position = createVector(random(105, Scene.width - 105), random(105, Scene.height - 105));
@@ -72,20 +72,6 @@ class Particle {
             this.position.y = new_y;
         }
 
-        // Mob interaction
-        // for (let other of Scene.swarm) {
-        //     if (other === this) continue;
-
-        //     const distance = dist(this.position.x, this.position.y, other.position.x, other.position.y);
-        //     const minDist = 5;
-        //     if (distance < this.size) {
-        //         const overlap = this.size - distance;
-        //         const angle = atan2(this.position.y - other.position.y, this.position.x - other.position.x);
-        //         this.position.x += cos(angle) * overlap;
-        //         this.position.y += sin(angle) * overlap;
-        //     }
-        // }
-
         this.position.x = constrain(this.position.x, 0, Scene.width);
         this.position.y = constrain(this.position.y, 0, Scene.height);
 
@@ -109,8 +95,8 @@ class Particle {
 
         let velocity =  p5.Vector.add(currentVelocityTerm, personalBestTerm)
                                 .add(globalBestTerm)
-                                .add(particleRepulsionForce)
-                                .add(wallRepulsionForce);
+                                .add(particleRepulsionForce);
+                                // .add(wallRepulsionForce);
 
         velocity = velocity.limit(this.MAX_SPEED)
         return velocity
@@ -160,7 +146,7 @@ class Particle {
         }
 
         const direction = p5.Vector.sub(this.position, nearestWall).normalize();
-        const magnitude = (A * (distance - this.SIZE / 2) ** B) * 1000;
+        const magnitude = (A * (distance - this.SIZE / 2) ** B);
         const repulsion = p5.Vector.mult(direction, magnitude)
 
         return repulsion;
@@ -259,14 +245,14 @@ function draw(){
 
     drawTarget()
 
-    const escapedParticles = Scene.swarm.filter(it => it.position.x > 500)
-
+    const escapedParticles = Scene.swarm.filter(it => it.position.x > 500).length
     if (!halftime && escapedParticles >= Scene.N / 2) {
-        print('Halftime: ' + millis())
+        print('Halftime: ' + millis() / 1000 + ' sec')
+        halftime = true
     }
-
     if (!finished && escapedParticles >= Scene.N) {
-        print('Finished: ' + millis())
+        print('Finished: ' + millis() / 1000 + ' sec')
+        finished = true
     }
 }
 
@@ -274,8 +260,4 @@ function drawTarget() {
     strokeWeight(0)
     fill( 255, 0, 0 )
     ellipse( Scene.target[0], Scene.target[1], 7, 7 )
-}
-
-function performExperiment() {
-    
 }
