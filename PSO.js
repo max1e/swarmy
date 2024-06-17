@@ -32,6 +32,7 @@ class Particle {
 
     constructor() {
         this.size = 5
+        this.FIELD_OF_VIEW = 50
 
         this.position = createVector(random(105, Scene.width - 105), random(105, Scene.height - 105));
         this.velocity = createVector(random(-1, 1), random(-1, 1));
@@ -184,8 +185,7 @@ class Particle {
     }
 
     getRegionalBest() {
-        const fieldOfView = 50
-        const friends = this.getFriends(fieldOfView)
+        const friends = this.getFriends(this.FIELD_OF_VIEW)
         const bestFriend = friends.reduce((best, current) => current.pbest_obj < best.pbest_obj ? current : best);
         return bestFriend.personalBest
     }
