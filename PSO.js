@@ -4,9 +4,7 @@ let Scene = {
     walls : [], 
     swarm : [], 
     N : 200, 
-    target : [300, 590], 
-    globalBest : (0,0), 
-    gbest_obj : Infinity,
+    target : [300, 590],
     distance : Array.from({ length: 600 }, () => Array(600).fill(Infinity))
 }
 
@@ -46,11 +44,6 @@ class Particle {
 
         this.personalBest = this.position.copy(); // Personal best position
         this.pbest_obj = objective_function(this.personalBest.x, this.personalBest.y); // Score of personal best position
-
-        if (this.pbest_obj < Scene.gbest_obj) {
-            Scene.gbest_obj = this.pbest_obj; // Global best score
-            Scene.globalBest = this.personalBest.copy(); // Global best position
-        }
     }
 
     
@@ -187,11 +180,6 @@ class Particle {
         if (new_obj < this.pbest_obj) {
             this.personalBest = this.position.copy();
             this.pbest_obj = new_obj;
-
-            if (this.pbest_obj < Scene.gbest_obj) {
-                Scene.gbest_obj = this.pbest_obj;
-                Scene.globalBest = this.personalBest.copy();
-            }
         }
     }
 
@@ -206,7 +194,7 @@ class Particle {
     getFriends(fieldOfView) {
         return Scene.swarm
             .filter(it => dist(this.position.x, this.position.y, it.position.x, it.position.y) <= fieldOfView)
-            .filter(friend => Scene.walls.every(wall => !wall.doesWallObstructView(this, friend)));
+            .filter(friend => Scene.walls.every(wall => !wall.obstructsView(this, friend)));
     }
 }
 
