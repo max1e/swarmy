@@ -24,6 +24,11 @@ class Wall {
         strokeWeight(5)
         line(this.A.x, this.A.y, this.B.x, this.B.y)
     }
+
+    obstructsView(particle1, particle2) {
+        // TODO wall obstruction here
+        return false
+    }
 }
 
 class Particle {
@@ -36,8 +41,7 @@ class Particle {
         this.max_speed = 2;
 
         this.c1 = 1.5; // Cognitive coefficient: weight for particle's best
-        this.c2 = 1.5; // Social coefficient: weight for swarm's best
-        this.c3 = 0.5; // Social coefficient: weight for swarm's best
+        this.c2 = 1; // Social coefficient: weight for region's best
 
         this.weight = 0.8; // Weight constant: how much particle keeps speed/direction
 
@@ -133,11 +137,9 @@ class Particle {
         // Particle cloud optimisation
         const r1 = random(0, 1);
         const r2 = random(0, 1);
-        const r3 = random(0, 1);
         
         const personalBestTerm = p5.Vector.sub(this.personalBest, this.position).mult(this.c1 * r1);
         const regionalBestTerm = p5.Vector.sub(this.getRegionalBest(), this.position).mult(this.c2 * r2);
-        const globalBestTerm = p5.Vector.sub(Scene.globalBest, this.position).mult(this.c3 * r3);
 
         // Social forces
         const A = 5;
@@ -148,7 +150,6 @@ class Particle {
 
         this.velocity = p5.Vector.add(currentVelocityTerm, personalBestTerm)
                                 .add(regionalBestTerm)
-                                .add(globalBestTerm)
                                 .add(particleRepulsionForce)
                                 .add(wallRepulsionForce);
         
@@ -196,29 +197,19 @@ class Particle {
     }
 
     getRegionalBest() {
-        const REGION = 5
-        const nearestNeighbours = this.getNearestNeighbours(REGION)
-
-        const bestNeighbour = nearestNeighbours
-            .reduce((best, current) => current.pbest_obj > best.pbest_obj ? current : best);
-
-        return bestNeighbour.personalBest
+        const fieldOfView = 50
+        const friends = this.getFriends(fieldOfView)
+        const bestFriend = friends.reduce((best, current) => current.pbest_obj < best.pbest_obj ? current : best);
+        return bestFriend.personalBest
     }
 
-    getNearestNeighbours(n) {
-        const distances = Scene.swarm
-            .filter(it => it !== this)
-            .map(it => {
-                const distance = dist(this.position.x, this.position.y, it.position.x, it.position.y);
-                return { distance, particle: it };
-            })
-            .sort((a, b) => a.distance - b.distance);
-    
-        const nearestNeighbours = distances.slice(0, n).map(item => item.particle);
-        return nearestNeighbours;
+    // Retrieves particles in fieldOfView, particle itself is also included
+    getFriends(fieldOfView) {
+        return Scene.swarm
+            .filter(it => dist(this.position.x, this.position.y, it.position.x, it.position.y) <= fieldOfView)
+            .filter(friend => Scene.walls.every(wall => !wall.doesWallObstructView(this, friend)));
     }
 }
-
 
 // Check if X can be updated without collisions (assumes walls are defined with lowest values first)
 function canUpdateX(new_x, current_pos) {
