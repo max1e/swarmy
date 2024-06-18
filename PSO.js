@@ -67,49 +67,26 @@ class Wall {
 class Particle {
 
     constructor() {
-        this.size = 5
+        this.SIZE = 5
         this.FIELD_OF_VIEW = 100
+
+        this.WEIGHT = 0.8; // Momentum factor
+        this.MAX_SPEED = 2;
+
+        this.C1 = 1.5; // Cognitive coefficient: weight for particle's best
+        this.C2 = 1; // Social coefficient: weight for region's best
 
         this.position = createVector(random(105, Scene.width - 105), random(105, Scene.height - 105));
         this.velocity = createVector(random(-1, 1), random(-1, 1));
-        this.max_speed = 2;
-
-        this.c1 = 1.5; // Cognitive coefficient: weight for particle's best
-        this.c2 = 1; // Social coefficient: weight for region's best
-
-        this.weight = 0.8; // Weight constant: how much particle keeps speed/direction
 
         this.personalBest = this.position.copy(); // Personal best position
         this.pbest_obj = objective_function(this.getX(), this.getY()); // Score of personal best position
     }
 
     step() {
-        // Retention of motion
-        const currentVelocityTerm = p5.Vector.mult(this.velocity, this.weight);
+        this.velocity = this.calculateVelocity()
 
-        // Particle cloud optimisation
-        const r1 = random(0, 1);
-        const r2 = random(0, 1);
-        
-        const personalBestTerm = p5.Vector.sub(this.personalBest, this.position).mult(this.c1 * r1);
-        const regionalBestTerm = p5.Vector.sub(this.getRegionalBest(), this.position).mult(this.c2 * r2);
-
-        // Social forces
-        const A = 5;
-        const B = 1.06;
-
-        const particleRepulsionForce = this.calculateParticleRepulsiveForce(A, B)
-        const wallRepulsionForce = this.calculateWallRepulsiveForce(A, B)
-
-        this.velocity = p5.Vector.add(currentVelocityTerm, personalBestTerm)
-                                .add(regionalBestTerm)
-                                .add(particleRepulsionForce)
-                                .add(wallRepulsionForce);
-        
-        // Restrictions
-        this.velocity.limit(this.max_speed);
-        // this.position.add(this.velocity)
-
+        // Update position
         let new_x = this.position.x + this.velocity.x;
         let new_y = this.position.y + this.velocity.y;
 
@@ -120,20 +97,6 @@ class Particle {
             this.position.y = new_y;
         }
 
-        // Mob interaction
-        // for (let other of Scene.swarm) {
-        //     if (other === this) continue;
-
-        //     const distance = dist(this.position.x, this.position.y, other.position.x, other.position.y);
-        //     const minDist = 5;
-        //     if (distance < this.size) {
-        //         const overlap = this.size - distance;
-        //         const angle = atan2(this.position.y - other.position.y, this.position.x - other.position.x);
-        //         this.position.x += cos(angle) * overlap;
-        //         this.position.y += sin(angle) * overlap;
-        //     }
-        // }
-
         this.position.x = constrain(this.position.x, 0, Scene.width);
         this.position.y = constrain(this.position.y, 0, Scene.height);
 
@@ -143,11 +106,37 @@ class Particle {
             this.pbest_obj = new_obj;
         }
     }
+
+    calculateVelocity() {
+        // Retention of motion
+        const currentVelocityTerm = p5.Vector.mult(this.velocity, this.WEIGHT);
+
+        // Particle cloud optimisation
+        const r1 = random(0, 1);
+        const r2 = random(0, 1);
+
+        const personalBestTerm = p5.Vector.sub(this.personalBest, this.position).mult(this.C1 * r1);
+        const regionalBestTerm = p5.Vector.sub(this.getRegionalBest(), this.position).mult(this.C2 * r2);
+
+        // Social forces
+        const A = 5;
+        const B = 1.06;
+
+        const particleRepulsionForce = this.calculateParticleRepulsiveForce(A, B)
+        const wallRepulsionForce = this.calculateWallRepulsiveForce(A, B)
+
+        const velocity = p5.Vector.add(currentVelocityTerm, personalBestTerm)
+                                    .add(regionalBestTerm)
+                                    .add(particleRepulsionForce)
+                                    .add(wallRepulsionForce);
+
+        return velocity.limit(this.MAX_SPEED);
+    }
     
     draw() {
         strokeWeight(fat);
         fill(0);
-        ellipse(this.position.x, this.position.y, this.size, this.size);
+        ellipse(this.position.x, this.position.y, this.SIZE, this.SIZE);
     }
 
     calculateParticleRepulsiveForce(A, B) {
@@ -159,11 +148,11 @@ class Particle {
     
             const distance = dist(this.position.x, this.position.y, other.position.x, other.position.y);
     
-            if (distance < this.size)  // Avoid division by zero or negative forces when too close
+            if (distance < this.SIZE)  // Avoid division by zero or negative forces when too close
                 continue;
     
             const direction = p5.Vector.sub(this.position, other.position).normalize();
-            const strength = A * (distance - this.size) ** -B;
+            const strength = A * (distance - this.SIZE) ** -B;
             const repulsion = p5.Vector.mult(direction, strength)
     
             repulsiveForce.add(repulsion);
@@ -176,12 +165,12 @@ class Particle {
         let nearestWall = this.findNearestWall();
         let distance = dist(this.position.x, this.position.y, nearestWall.x, nearestWall.y);
 
-        if (distance < this.size / 2) {
-            distance = this.size / 2;
+        if (distance < this.SIZE / 2) {
+            distance = this.SIZE / 2;
         }
 
         const direction = p5.Vector.sub(this.position, nearestWall).normalize();
-        const strength = A * (distance - this.size / 2) ** -B;
+        const strength = A * (distance - this.SIZE / 2) ** -B;
         const repulsion = p5.Vector.mult(direction, strength)
 
         return repulsion;
