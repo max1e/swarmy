@@ -10,7 +10,9 @@ let Scene = {
     grid : Array.from({ length: 600 }, () => Array(600).fill(0))
 }
 
-const fat = 1
+const FAT = 1
+let halftime = false
+let finished = false
 
 
 class Wall {
@@ -76,6 +78,9 @@ class Particle {
         this.C1 = 1.5; // Cognitive coefficient: weight for particle's best
         this.C2 = 1; // Social coefficient: weight for region's best
 
+        this.A = 5;
+        this.B = 1.06;
+
         this.position = createVector(random(105, Scene.width - 105), random(105, Scene.height - 105));
         this.velocity = createVector(random(-1, 1), random(-1, 1));
 
@@ -119,11 +124,8 @@ class Particle {
         const regionalBestTerm = p5.Vector.sub(this.getRegionalBest(), this.position).mult(this.C2 * r2);
 
         // Social forces
-        const A = 5;
-        const B = 1.06;
-
-        const particleRepulsionForce = this.calculateParticleRepulsiveForce(A, B)
-        const wallRepulsionForce = this.calculateWallRepulsiveForce(A, B)
+        const particleRepulsionForce = this.calculateParticleRepulsiveForce(this.A, this.B)
+        const wallRepulsionForce = this.calculateWallRepulsiveForce(this.A, this.B)
 
         const velocity = p5.Vector.add(currentVelocityTerm, personalBestTerm)
                                     .add(regionalBestTerm)
@@ -134,7 +136,7 @@ class Particle {
     }
     
     draw() {
-        strokeWeight(fat);
+        strokeWeight(FAT);
         fill(0);
         ellipse(this.position.x, this.position.y, this.SIZE, this.SIZE);
     }
@@ -259,7 +261,6 @@ function canUpdateY(new_y, current_pos) {
     return true;
 }
 
-
 // Objective function: returns score based on position
 function objective_function(x, y){
     //return dist( x, y, Scene.target[0], Scene.target[1] )
@@ -333,6 +334,20 @@ function draw(){
     }
 
     drawTarget()
+    
+    recordMetrics()
+}
+
+function recordMetrics() {
+    const escapedParticles = Scene.swarm.filter(it => it.position.x > 500).length
+    if (!halftime && escapedParticles >= Scene.N / 2) {
+        print('Halftime: ' + millis() / 1000 + ' sec')
+        halftime = true
+    }
+    if (!finished && escapedParticles >= Scene.N) {
+        print('Finished: ' + millis() / 1000 + ' sec')
+        finished = true
+    }
 }
 
 function drawTarget(){
