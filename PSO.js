@@ -25,26 +25,12 @@ class Wall {
     }
 
     obstructsView(particle1, particle2) {
+        
         // Bresenham's line algorithm
-        let x0 = Math.round(particle1.position.x)
-        let y0 = Math.round(particle1.position.y)
-        let x1 = Math.round(particle2.position.x)
-        let y1 = Math.round(particle2.position.y)
-        
-        // Make sure we don't go out of bounds
-        if (x0 > 599){
-            x0 = 599
-        }
-        if (y0 > 599){
-            y0 = 599
-        }
-        if (x1 > 599){
-            x1 = 599
-        }
-        if (y1 > 599){
-            y1 = 599
-        }
-        
+        let x0 = particle1.getX()
+        let y0 = particle1.getY()
+        let x1 = particle2.getX()
+        let y1 = particle2.getY()
         
         let dx = Math.abs(x1 - x0)
         let dy = Math.abs(y1 - y0)
@@ -94,16 +80,75 @@ class Particle {
         this.weight = 0.8; // Weight constant: how much particle keeps speed/direction
 
         this.personalBest = this.position.copy(); // Personal best position
-        this.pbest_obj = objective_function(this.personalBest.x, this.personalBest.y); // Score of personal best position
+        this.pbest_obj = objective_function(this.getX(), this.getY()); // Score of personal best position
     }
 
+    step() {
+        // Retention of motion
+        const currentVelocityTerm = p5.Vector.mult(this.velocity, this.weight);
+
+        // Particle cloud optimisation
+        const r1 = random(0, 1);
+        const r2 = random(0, 1);
+        
+        const personalBestTerm = p5.Vector.sub(this.personalBest, this.position).mult(this.c1 * r1);
+        const regionalBestTerm = p5.Vector.sub(this.getRegionalBest(), this.position).mult(this.c2 * r2);
+
+        // Social forces
+        const A = 5;
+        const B = 1.06;
+
+        const particleRepulsionForce = this.calculateParticleRepulsiveForce(A, B)
+        const wallRepulsionForce = this.calculateWallRepulsiveForce(A, B)
+
+        this.velocity = p5.Vector.add(currentVelocityTerm, personalBestTerm)
+                                .add(regionalBestTerm)
+                                .add(particleRepulsionForce)
+                                .add(wallRepulsionForce);
+        
+        // Restrictions
+        this.velocity.limit(this.max_speed);
+        // this.position.add(this.velocity)
+
+        let new_x = this.position.x + this.velocity.x;
+        let new_y = this.position.y + this.velocity.y;
+
+        if (canUpdateX(new_x, this.position)) {
+            this.position.x = new_x;
+        }
+        if (canUpdateY(new_y, this.position)) {
+            this.position.y = new_y;
+        }
+
+        // Mob interaction
+        // for (let other of Scene.swarm) {
+        //     if (other === this) continue;
+
+        //     const distance = dist(this.position.x, this.position.y, other.position.x, other.position.y);
+        //     const minDist = 5;
+        //     if (distance < this.size) {
+        //         const overlap = this.size - distance;
+        //         const angle = atan2(this.position.y - other.position.y, this.position.x - other.position.x);
+        //         this.position.x += cos(angle) * overlap;
+        //         this.position.y += sin(angle) * overlap;
+        //     }
+        // }
+
+        this.position.x = constrain(this.position.x, 0, Scene.width);
+        this.position.y = constrain(this.position.y, 0, Scene.height);
+
+        let new_obj = objective_function(this.getX(), this.getY());
+        if (new_obj < this.pbest_obj) {
+            this.personalBest = this.position.copy();
+            this.pbest_obj = new_obj;
+        }
+    }
     
     draw() {
         strokeWeight(fat);
         fill(0);
         ellipse(this.position.x, this.position.y, this.size, this.size);
     }
-
 
     calculateParticleRepulsiveForce(A, B) {
         let repulsiveForce = createVector(0, 0);
@@ -173,81 +218,31 @@ class Particle {
         return closest;
       }
 
-    step() {
-        // Retention of motion
-        const currentVelocityTerm = p5.Vector.mult(this.velocity, this.weight);
-
-        // Particle cloud optimisation
-        const r1 = random(0, 1);
-        const r2 = random(0, 1);
-        
-        const personalBestTerm = p5.Vector.sub(this.personalBest, this.position).mult(this.c1 * r1);
-        const regionalBestTerm = p5.Vector.sub(this.getRegionalBest(), this.position).mult(this.c2 * r2);
-
-        // Social forces
-        const A = 5;
-        const B = 1.06;
-
-        const particleRepulsionForce = this.calculateParticleRepulsiveForce(A, B)
-        const wallRepulsionForce = this.calculateWallRepulsiveForce(A, B)
-
-        this.velocity = p5.Vector.add(currentVelocityTerm, personalBestTerm)
-                                .add(regionalBestTerm)
-                                .add(particleRepulsionForce)
-                                .add(wallRepulsionForce);
-        
-        // Restrictions
-        this.velocity.limit(this.max_speed);
-        // this.position.add(this.velocity)
-
-        let new_x = this.position.x + this.velocity.x;
-        let new_y = this.position.y + this.velocity.y;
-
-        if (canUpdateX(new_x, this.position)) {
-            this.position.x = new_x;
-        }
-        if (canUpdateY(new_y, this.position)) {
-            this.position.y = new_y;
-        }
-
-        // Mob interaction
-        // for (let other of Scene.swarm) {
-        //     if (other === this) continue;
-
-        //     const distance = dist(this.position.x, this.position.y, other.position.x, other.position.y);
-        //     const minDist = 5;
-        //     if (distance < this.size) {
-        //         const overlap = this.size - distance;
-        //         const angle = atan2(this.position.y - other.position.y, this.position.x - other.position.x);
-        //         this.position.x += cos(angle) * overlap;
-        //         this.position.y += sin(angle) * overlap;
-        //     }
-        // }
-
-        this.position.x = constrain(this.position.x, 0, Scene.width);
-        this.position.y = constrain(this.position.y, 0, Scene.height);
-
-        let new_obj = objective_function(this.position.x, this.position.y);
-        if (new_obj < this.pbest_obj) {
-            this.personalBest = this.position.copy();
-            this.pbest_obj = new_obj;
-        }
-    }
-
     getRegionalBest() {
         const friends = this.getFriends(this.FIELD_OF_VIEW)
-        if (friends.length  != 0){
-            const bestFriend = friends.reduce((best, current) => current.pbest_obj < best.pbest_obj ? current : best);
-            return bestFriend.personalBest
-        }
-        return this.personalBest
+        
+        if (friends.length == 0)
+            return this.personalBest
+        
+        const bestFriend = friends.reduce((best, current) => current.pbest_obj < best.pbest_obj ? current : best);
+        return bestFriend.personalBest
     }
 
-    // Retrieves particles in fieldOfView, particle itself is also included
     getFriends(fieldOfView) {
         return Scene.swarm
+            .filter(it => it !== this)
             .filter(it => dist(this.position.x, this.position.y, it.position.x, it.position.y) <= fieldOfView)
             .filter(friend => Scene.walls.every(wall => !wall.obstructsView(this, friend)));
+    }
+
+    getX() {
+        const roundedX = Math.round(this.position.x)
+        return constrain(roundedX, 1, Scene.width - 1)
+    }
+
+    getY() {
+        const roundedY = Math.round(this.position.y)
+        return constrain(roundedY, 1, Scene.height - 1)
     }
 }
 
@@ -279,16 +274,6 @@ function canUpdateY(new_y, current_pos) {
 // Objective function: returns score based on position
 function objective_function(x, y){
     //return dist( x, y, Scene.target[0], Scene.target[1] )
-    x = Math.round(x)
-    y = Math.round(y)
-  
-    if (x > 599){
-        x = 599
-    }
-    if (y > 599){
-        y = 599
-    }
-  
     return Scene.distance[x][y]
 }
 
