@@ -6,7 +6,8 @@ let Scene = {
     swarm : [], 
     N : 200, 
     target : [300, 590],
-    distance : Array.from({ length: 600 }, () => Array(600).fill(Infinity))
+    distance : Array.from({ length: 600 }, () => Array(600).fill(Infinity)),
+    grid : Array.from({ length: 600 }, () => Array(600).fill(0))
 }
 
 const fat = 1
@@ -24,8 +25,56 @@ class Wall {
     }
 
     obstructsView(particle1, particle2) {
-        // TODO wall obstruction here
-        return false
+        // Bresenham's line algorithm
+        let x0 = Math.round(particle1.position.x)
+        let y0 = Math.round(particle1.position.y)
+        let x1 = Math.round(particle2.position.x)
+        let y1 = Math.round(particle2.position.y)
+        
+        // Make sure we don't go out of bounds
+        if (x0 > 599){
+            x0 = 599
+        }
+        if (y0 > 599){
+            y0 = 599
+        }
+        if (x1 > 599){
+            x1 = 599
+        }
+        if (y1 > 599){
+            y1 = 599
+        }
+        
+        
+        let dx = Math.abs(x1 - x0)
+        let dy = Math.abs(y1 - y0)
+        let sx = (x0 < x1) ? 1 : -1
+        let sy = (y0 < y1) ? 1 : -1
+        let err = dx - dy
+
+        while (true) {
+            // Check if the current cell is a wall
+            if (Scene.grid[y0][x0] === 1) {
+                return true
+            }
+          
+            // Check if we reached the particle
+            if (x0 === x1 && y0 === y1) {
+                break
+            }
+
+            // Idrk what this part does but it works
+            let e2 = 2 * err
+            if (e2 > -dy) {
+                err -= dy
+                x0 += sx
+            }
+            if (e2 < dx) {
+                err += dx
+                y0 += sy
+            }
+        }
+        return false;
     }
 }
 
@@ -33,7 +82,7 @@ class Particle {
 
     constructor() {
         this.size = 5
-        this.FIELD_OF_VIEW = 50
+        this.FIELD_OF_VIEW = 100
 
         this.position = createVector(random(105, Scene.width - 105), random(105, Scene.height - 105));
         this.velocity = createVector(random(-1, 1), random(-1, 1));
@@ -187,8 +236,11 @@ class Particle {
 
     getRegionalBest() {
         const friends = this.getFriends(this.FIELD_OF_VIEW)
-        const bestFriend = friends.reduce((best, current) => current.pbest_obj < best.pbest_obj ? current : best);
-        return bestFriend.personalBest
+        if (friends.length  != 0){
+            const bestFriend = friends.reduce((best, current) => current.pbest_obj < best.pbest_obj ? current : best);
+            return bestFriend.personalBest
+        }
+        return this.personalBest
     }
 
     // Retrieves particles in fieldOfView, particle itself is also included
@@ -227,7 +279,17 @@ function canUpdateY(new_y, current_pos) {
 // Objective function: returns score based on position
 function objective_function(x, y){
     //return dist( x, y, Scene.target[0], Scene.target[1] )
-    return Scene.distance[Math.round(x)][Math.round(y)]
+    x = Math.round(x)
+    y = Math.round(y)
+  
+    if (x > 599){
+        x = 599
+    }
+    if (y > 599){
+        y = 599
+    }
+  
+    return Scene.distance[x][y]
 }
 
 function getDistances(){
@@ -243,7 +305,7 @@ function getDistances(){
             const nx = x + dx
             const ny = y + dy
             
-            if (nx >= 0 && nx < Scene.width && ny >= 0 && ny < Scene.height && Scene.distance[nx][ny] != 6666) {
+            if (nx >= 0 && nx < Scene.width && ny >= 0 && ny < Scene.height && Scene.grid[nx][ny] != 1) {
                 if (Scene.distance[nx][ny] > Scene.distance[x][y] + 1) {
                     Scene.distance[nx][ny] = Scene.distance[x][y] + 1
                     queue.push([nx, ny])
@@ -265,7 +327,7 @@ function createWalls(){
     for (let wall of Scene.walls) {
         for (let x = wall.A.x ; x <=wall.B.x ; x++) {
             for (let y = wall.A.y ; y <=wall.B.y ; y++) {
-                Scene.distance[x][y] = 6666 //idk
+                Scene.grid[x][y] = 1
             }
         }
     }
@@ -276,7 +338,6 @@ function setup(){
     createWalls()  
   
     getDistances()
-    print(Scene.distance)
   
     Scene.swarm = []
 
