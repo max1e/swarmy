@@ -81,6 +81,13 @@ class Particle {
         this.A = 5;
         this.B = 1.06;
 
+        this.BETA = 1
+        this.MIN_RADIUS = 1
+        this.MAX_RADIUS = 2
+        this.RADIUS_COOLDOWN = 0.5
+
+        this.radius = this.MIN_RADIUS
+
         this.position = createVector(random(105, Scene.width - 105), random(105, Scene.height - 105));
         this.velocity = createVector(random(-1, 1), random(-1, 1));
 
@@ -88,22 +95,15 @@ class Particle {
         this.pbest_obj = objective_function(this.getX(), this.getY()); // Score of personal best position
     }
 
+    draw() {
+        strokeWeight(FAT);
+        fill(0);
+        ellipse(this.position.x, this.position.y, this.SIZE, this.SIZE);
+    }
+
     step() {
         this.velocity = this.calculateVelocity()
-
-        // Update position
-        let new_x = this.position.x + this.velocity.x;
-        let new_y = this.position.y + this.velocity.y;
-
-        if (canUpdateX(new_x, this.position)) {
-            this.position.x = new_x;
-        }
-        if (canUpdateY(new_y, this.position)) {
-            this.position.y = new_y;
-        }
-
-        this.position.x = constrain(this.position.x, 0, Scene.width);
-        this.position.y = constrain(this.position.y, 0, Scene.height);
+        this.updatePosition()
 
         let new_obj = objective_function(this.getX(), this.getY());
         if (new_obj < this.pbest_obj) {
@@ -123,6 +123,17 @@ class Particle {
         const personalBestTerm = p5.Vector.sub(this.personalBest, this.position).mult(this.C1 * r1);
         const regionalBestTerm = p5.Vector.sub(this.getRegionalBest(), this.position).mult(this.C2 * r2);
 
+        const direction = p5.Vector.add(currentVelocityTerm, personalBestTerm).normalize()
+
+        // NEW STUFF
+        if (this.radius < this.MAX_RADIUS) {
+            this.radius += this.MAX_RADIUS / this.RADIUS_COOLDOWN
+        }
+
+        this.velocity = this.MAX_SPEED * ((this.radius - this.MIN_RADIUS) / (this.MAX_RADIUS - this.MIN_RADIUS)) ^ this.BETA
+
+        // 
+
         // Social forces
         const particleRepulsionForce = this.calculateParticleRepulsiveForce(this.A, this.B)
         const wallRepulsionForce = this.calculateWallRepulsiveForce(this.A, this.B)
@@ -134,11 +145,20 @@ class Particle {
 
         return velocity.limit(this.MAX_SPEED);
     }
-    
-    draw() {
-        strokeWeight(FAT);
-        fill(0);
-        ellipse(this.position.x, this.position.y, this.SIZE, this.SIZE);
+
+    updatePosition() {
+        let newX = this.position.x + this.velocity.x;
+        let newY = this.position.y + this.velocity.y;
+
+        newX = constrain(newX, 0, Scene.width)
+        newY = constrain(newY, 0, Scene.height);
+
+        if (canUpdateX(newX, this.position)) {
+            this.position.x = newX;
+        }
+        if (canUpdateY(newY, this.position)) {
+            this.position.y = newY;
+        }
     }
 
     calculateParticleRepulsiveForce(A, B) {
@@ -300,7 +320,7 @@ function createWalls(){
     ]
   
     for (let wall of Scene.walls) {
-        for (let x = wall.A.x ; x <=wall.B.x ; x++) {
+        for (let x = wall.A.x; x <=wall.B.x; x++) {
             for (let y = wall.A.y ; y <=wall.B.y ; y++) {
                 Scene.grid[x][y] = 1
             }
@@ -309,7 +329,7 @@ function createWalls(){
 }
 
 function setup(){
-	createCanvas( Scene.width, Scene.height )
+	createCanvas(Scene.width, Scene.height)
     createWalls()  
   
     getDistances()
