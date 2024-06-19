@@ -4,7 +4,7 @@ let Scene = {
     height : 600, 
     walls : [], 
     swarm : [], 
-    N : 200, 
+    N : 50, 
     target : [300, 590],
     distance : Array.from({ length: 600 }, () => Array(600).fill(Infinity)),
     grid : Array.from({ length: 600 }, () => Array(600).fill(0))
@@ -27,6 +27,8 @@ class Wall {
     }
 
     obstructsView(particle1, particle2) {
+        if (particle1.position == particle2.position) 
+            return false
         
         // Bresenham's line algorithm
         let x0 = particle1.getX()
@@ -48,7 +50,7 @@ class Wall {
           
             // Check if we reached the particle
             if (x0 === x1 && y0 === y1) {
-                break
+                return false
             }
 
             // Idrk what this part does but it works
@@ -62,7 +64,6 @@ class Wall {
                 y0 += sy
             }
         }
-        return false;
     }
 }
 
@@ -78,13 +79,11 @@ class Particle {
         this.C1 = 1.5; // Cognitive coefficient: weight for particle's best
         this.C2 = 1; // Social coefficient: weight for region's best
 
-        this.A = 5;
-        this.B = 1.06;
-
         this.BETA = 1
-        this.MIN_RADIUS = 1
-        this.MAX_RADIUS = 2
-        this.RADIUS_COOLDOWN = 0.5
+        this.MIN_RADIUS = 5
+        this.MAX_RADIUS = 20
+        this.RADIUS_COOLDOWN = 0.1
+        this.ESCAPE_SPEED = 1
 
         this.radius = this.MIN_RADIUS
 
@@ -113,37 +112,47 @@ class Particle {
     }
 
     calculateVelocity() {
-        // Retention of motion
-        const currentVelocityTerm = p5.Vector.mult(this.velocity, this.WEIGHT);
-
-        // Particle cloud optimisation
-        const r1 = random(0, 1);
-        const r2 = random(0, 1);
-
-        const personalBestTerm = p5.Vector.sub(this.personalBest, this.position).mult(this.C1 * r1);
-        const regionalBestTerm = p5.Vector.sub(this.getRegionalBest(), this.position).mult(this.C2 * r2);
-
-        const direction = p5.Vector.add(currentVelocityTerm, personalBestTerm).normalize()
 
         // NEW STUFF
+
+        // Update radius
+        const hitParticles = Scene.swarm
+            .filter(it => it !== this)
+            .filter(it => dist(this.position.x, this.position.y, it.position.x, it.position.y) < this.radius)
+        if (hitParticles.length > 0) {
+            this.radius = this.MIN_RADIUS
+            
+            // Escape from collisions
+            const escapeDirections = hitParticles.map(it => {
+                const distance = p5.Vector.sub(this.position, it.position)
+                return p5.Vector.div(distance, distance.normalize())
+            })
+            const summedEscapeDirection = escapeDirections.reduce((cum, it) => p5.Vector.add(cum, it))
+
+            const escapeVelocity = p5.Vector.div(summedEscapeDirection, summedEscapeDirection.normalize()).mult(this.ESCAPE_SPEED)
+            return escapeVelocity
+        } 
+        
         if (this.radius < this.MAX_RADIUS) {
-            this.radius += this.MAX_RADIUS / this.RADIUS_COOLDOWN
+            this.radius += this.MAX_RADIUS * this.RADIUS_COOLDOWN
         }
 
-        this.velocity = this.MAX_SPEED * ((this.radius - this.MIN_RADIUS) / (this.MAX_RADIUS - this.MIN_RADIUS)) ^ this.BETA
+        const speed = this.MAX_SPEED * ((this.radius - this.MIN_RADIUS) / (this.MAX_RADIUS - this.MIN_RADIUS)) ^ this.BETA
+        
+        // Retention of motion
+        const currentVelocityTerm = p5.Vector.mult(this.velocity, this.WEIGHT)
 
-        // 
+        // Particle cloud optimisation
+        const r1 = random(0, 1)
+        const r2 = random(0, 1)
 
-        // Social forces
-        const particleRepulsionForce = this.calculateParticleRepulsiveForce(this.A, this.B)
-        const wallRepulsionForce = this.calculateWallRepulsiveForce(this.A, this.B)
+        const personalBestTerm = p5.Vector.sub(this.personalBest, this.position).mult(this.C1 * r1)
+        const regionalBestTerm = p5.Vector.sub(this.getRegionalBest(), this.position).mult(this.C2 * r2)
 
-        const velocity = p5.Vector.add(currentVelocityTerm, personalBestTerm)
-                                    .add(regionalBestTerm)
-                                    .add(particleRepulsionForce)
-                                    .add(wallRepulsionForce);
+        const direction = p5.Vector.add(currentVelocityTerm, personalBestTerm)
+                                    .add(regionalBestTerm).normalize()
 
-        return velocity.limit(this.MAX_SPEED);
+        return direction.mult(speed)
     }
 
     updatePosition() {
@@ -166,12 +175,12 @@ class Particle {
     
         for (let other of Scene.swarm) {
             if (other === this)
-                continue;
+                continue
     
-            const distance = dist(this.position.x, this.position.y, other.position.x, other.position.y);
+            const distance = dist(this.position.x, this.position.y, other.position.x, other.position.y)
     
             if (distance < this.SIZE)  // Avoid division by zero or negative forces when too close
-                continue;
+                continue
     
             const direction = p5.Vector.sub(this.position, other.position).normalize();
             const strength = A * (distance - this.SIZE) ** -B;
@@ -183,65 +192,14 @@ class Particle {
         return repulsiveForce;
     }
 
-    calculateWallRepulsiveForce(A, B) {
-        let nearestWall = this.findNearestWall();
-        let distance = dist(this.position.x, this.position.y, nearestWall.x, nearestWall.y);
-
-        if (distance < this.SIZE / 2) {
-            distance = this.SIZE / 2;
-        }
-
-        const direction = p5.Vector.sub(this.position, nearestWall).normalize();
-        const strength = A * (distance - this.SIZE / 2) ** -B;
-        const repulsion = p5.Vector.mult(direction, strength)
-
-        return repulsion;
-    }
-
-    findNearestWall() {
-        let closestWall = createVector(0, 0)
-        for (let wall of Scene.walls) {
-            const closestPoint = this.closestPointOnLine(wall.A, wall.B, this.position)
-            if (dist(this.position.x, this.position.y, closestPoint.x, closestPoint.y) < dist(this.position.x, this.position.y, closestWall.x, closestWall.y)) {
-                closestWall = closestPoint
-            }
-        }
-        return closestWall
-    }
-
-    // Fucntion from ChatGPT
-    closestPointOnLine(A, B, P) {
-        // Vector AB
-        let AB = p5.Vector.sub(B, A);
-      
-        // Vector AP
-        let AP = p5.Vector.sub(P, A);
-      
-        // Project vector AP onto AB
-        let t = AP.dot(AB) / AB.dot(AB);
-      
-        // Clamp t to the range [0, 1] to get the closest point on the line segment
-        t = constrain(t, 0, 1);
-      
-        // Calculate the closest point
-        let closest = p5.Vector.add(A, AB.mult(t));
-        
-        return closest;
-      }
-
     getRegionalBest() {
         const friends = this.getFriends(this.FIELD_OF_VIEW)
-        
-        if (friends.length == 0)
-            return this.personalBest
-        
         const bestFriend = friends.reduce((best, current) => current.pbest_obj < best.pbest_obj ? current : best);
         return bestFriend.personalBest
     }
 
     getFriends(fieldOfView) {
         return Scene.swarm
-            .filter(it => it !== this)
             .filter(it => dist(this.position.x, this.position.y, it.position.x, it.position.y) <= fieldOfView)
             .filter(friend => Scene.walls.every(wall => !wall.obstructsView(this, friend)));
     }
