@@ -1,0 +1,129 @@
+// Targets Boven/Beneden, kunnen evt toegevoegd/weggehaald worden in de init vd scene
+
+// Wall Variaties
+
+// BASELINE
+Scene.walls = [
+        new Wall(100, 100, 500, 100),
+        new Wall(100, 100, 100, 500),
+        new Wall(100, 500, 500, 500),
+        new Wall(500, 100, 500, 275),
+        new Wall(500, 325, 500, 500)
+    ]
+
+// LARGE OPENING
+Scene.walls = [
+        new Wall(100, 100, 500, 100),
+        new Wall(100, 100, 100, 500),
+        new Wall(100, 500, 500, 500),
+        new Wall(500, 100, 500, 250),
+        new Wall(500, 350, 500, 500)
+    ]
+
+// WALL
+Scene.walls = [
+        new Wall(100, 100, 500, 100),
+        new Wall(100, 100, 100, 500),
+        new Wall(100, 500, 500, 500),
+        new Wall(500, 100, 500, 275),
+        new Wall(425, 200, 425, 400),
+        new Wall(500, 325, 500, 500)
+    ]
+
+// LARGE OPENING (WALL)
+Scene.walls = [
+        new Wall(100, 100, 500, 100),
+        new Wall(100, 100, 100, 500),
+        new Wall(100, 500, 500, 500),
+        new Wall(500, 100, 500, 275),
+        new Wall(425, 200, 425, 400),
+        new Wall(500, 325, 500, 500)
+    ]
+
+// 2 EXITS
+Scene.walls = [
+        new Wall(100, 100, 500, 100),
+        new Wall(100, 100, 100, 500),
+        new Wall(100, 500, 500, 500),
+        new Wall(500, 100, 500, 200),
+        new Wall(500, 250, 500, 350),
+        new Wall(500, 400, 500, 500)
+    ]
+
+// 2 EXITS (LARGE)
+Scene.walls = [
+        new Wall(100, 100, 500, 100),
+        new Wall(100, 100, 100, 500),
+        new Wall(100, 500, 500, 500),
+        new Wall(500, 100, 500, 175),
+        new Wall(500, 225, 500, 325),
+        new Wall(500, 425, 500, 500)
+    ]
+
+// 2 EXITS (LARGE + SMALL)
+Scene.walls = [
+        new Wall(100, 100, 500, 100),
+        new Wall(100, 100, 100, 500),
+        new Wall(100, 500, 500, 500),
+        new Wall(500, 100, 500, 175),
+        new Wall(500, 225, 500, 350),
+        new Wall(500, 450, 500, 500)
+    ]
+
+// 2 EXITS (WALL)
+Scene.walls = [
+        new Wall(100, 100, 500, 100),
+        new Wall(100, 100, 100, 500),
+        new Wall(100, 500, 500, 500),
+        new Wall(500, 100, 500, 200),
+        new Wall(500, 250, 500, 350),
+        new Wall(450, 350, 450, 500),
+        new Wall(450, 100, 450, 250),
+        new Wall(500, 400, 500, 500)
+    ]
+
+// 2 EXITS (LARGE) (WALL)
+Scene.walls = [
+        new Wall(100, 100, 500, 100),
+        new Wall(100, 100, 100, 500),
+        new Wall(100, 500, 500, 500),
+        new Wall(500, 100, 500, 200),
+        new Wall(500, 250, 500, 350),
+        new Wall(450, 350, 450, 500),
+        new Wall(450, 100, 450, 250),
+        new Wall(500, 400, 500, 500)
+    ]
+
+// 2 EXITS (LARGE + SMALL) (WALL)
+Scene.walls = [
+        new Wall(100, 100, 500, 100),
+        new Wall(100, 100, 100, 500),
+        new Wall(100, 500, 500, 500),
+        new Wall(500, 100, 500, 200),
+        new Wall(500, 250, 500, 350),
+        new Wall(450, 350, 450, 500),
+        new Wall(450, 100, 450, 250),
+        new Wall(500, 400, 500, 500)
+    ]
+
+// 3 EXITS
+Scene.walls = [
+        new Wall(100, 100, 500, 100),
+        new Wall(100, 100, 100, 500),
+        new Wall(100, 500, 500, 500),
+        new Wall(500, 200, 500, 275),
+        new Wall(500, 325, 500, 400),
+        new Wall(500, 100, 500, 150),
+        new Wall(500, 450, 500, 500)
+    ]
+
+// 3 EXITS (LARGE MIDDLE EXIT)
+Scene.walls = [
+        new Wall(100, 100, 500, 100),
+        new Wall(100, 100, 100, 500),
+        new Wall(100, 500, 500, 500),
+        new Wall(500, 200, 500, 250),
+        new Wall(500, 350, 500, 400),
+        new Wall(500, 100, 500, 150),
+        new Wall(500, 450, 500, 500)
+    ]
