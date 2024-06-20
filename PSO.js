@@ -1,65 +1,68 @@
-
 let Scene = {
-    width : 600, 
-    height : 600, 
-    walls : [], 
-    swarm : [], 
-    N : 200, 
-    target : [300, 590],
-    distance : Array.from({ length: 600 }, () => Array(600).fill(Infinity)),
-    grid : Array.from({ length: 600 }, () => Array(600).fill(0))
-}
+    width: 600,
+    height: 600,
+    walls: [],
+    swarm: [],
+    N: 200,
+    target: [
+        [590, 225],
+        [590, 375]
+    ],
+    distance: [
+        Array.from({ length: 600 }, () => Array(600).fill(Infinity)),
+        Array.from({ length: 600 }, () => Array(600).fill(Infinity))
+    ],
+    grid: Array.from({ length: 600 }, () => Array(600).fill(0)),
+    escapedParticlesHistoryAllRuns : []
+};
 
-const FAT = 1
-let halftime = false
-let finished = false
+const FAT = 1;
+const nrOfRuns = 20;
+let halftime = false;
+let finished = false;
+let escapedParticles = 0;
+let escapedParticlesHistory = [];
 
+let run = 1
 
 class Wall {
-    constructor(x1, y1, x2, y2){
-        this.A = createVector(x1, y1)
-        this.B = createVector(x2, y2)
+    constructor(x1, y1, x2, y2) {
+        this.A = createVector(x1, y1);
+        this.B = createVector(x2, y2);
     }
 
     draw() {
-        strokeWeight(5)
-        line(this.A.x, this.A.y, this.B.x, this.B.y)
+        strokeWeight(5);
+        line(this.A.x, this.A.y, this.B.x, this.B.y);
     }
 
     obstructsView(particle1, particle2) {
-        
-        // Bresenham's line algorithm
-        let x0 = particle1.getX()
-        let y0 = particle1.getY()
-        let x1 = particle2.getX()
-        let y1 = particle2.getY()
-        
-        let dx = Math.abs(x1 - x0)
-        let dy = Math.abs(y1 - y0)
-        let sx = (x0 < x1) ? 1 : -1
-        let sy = (y0 < y1) ? 1 : -1
-        let err = dx - dy
+        let x0 = particle1.getX();
+        let y0 = particle1.getY();
+        let x1 = particle2.getX();
+        let y1 = particle2.getY();
+
+        let dx = Math.abs(x1 - x0);
+        let dy = Math.abs(y1 - y0);
+        let sx = (x0 < x1) ? 1 : -1;
+        let sy = (y0 < y1) ? 1 : -1;
+        let err = dx - dy;
 
         while (true) {
-            // Check if the current cell is a wall
             if (Scene.grid[y0][x0] === 1) {
-                return true
+                return true;
             }
-          
-            // Check if we reached the particle
             if (x0 === x1 && y0 === y1) {
-                break
+                break;
             }
-
-            // Idrk what this part does but it works
-            let e2 = 2 * err
+            let e2 = 2 * err;
             if (e2 > -dy) {
-                err -= dy
-                x0 += sx
+                err -= dy;
+                x0 += sx;
             }
             if (e2 < dx) {
-                err += dx
-                y0 += sy
+                err += dx;
+                y0 += sy;
             }
         }
         return false;
@@ -67,16 +70,15 @@ class Wall {
 }
 
 class Particle {
-
     constructor() {
-        this.SIZE = 5
-        this.FIELD_OF_VIEW = 100
+        this.SIZE = 5;
+        this.FIELD_OF_VIEW = 50;
 
-        this.WEIGHT = 0.8; // Momentum factor
+        this.WEIGHT = 0.8;
         this.MAX_SPEED = 2;
 
-        this.C1 = 1.5; // Cognitive coefficient: weight for particle's best
-        this.C2 = 1; // Social coefficient: weight for region's best
+        this.C1 = 1.5;
+        this.C2 = 1;
 
         this.A = 5;
         this.B = 1.06;
@@ -84,14 +86,13 @@ class Particle {
         this.position = createVector(random(105, Scene.width - 105), random(105, Scene.height - 105));
         this.velocity = createVector(random(-1, 1), random(-1, 1));
 
-        this.personalBest = this.position.copy(); // Personal best position
-        this.pbest_obj = objective_function(this.getX(), this.getY()); // Score of personal best position
+        this.personalBest = this.position.copy();
+        this.pbest_obj = objective_function(this.getX(), this.getY());
     }
 
     step() {
-        this.velocity = this.calculateVelocity()
+        this.velocity = this.calculateVelocity();
 
-        // Update position
         let new_x = this.position.x + this.velocity.x;
         let new_y = this.position.y + this.velocity.y;
 
@@ -110,31 +111,36 @@ class Particle {
             this.personalBest = this.position.copy();
             this.pbest_obj = new_obj;
         }
+        
+        if (this.position.x > 520) {
+            let index = Scene.swarm.indexOf(this)
+            if (index > -1) {
+                Scene.swarm.splice(index, 1)
+                escapedParticles += 1
+            }
+            return
+        }
     }
-
     calculateVelocity() {
-        // Retention of motion
         const currentVelocityTerm = p5.Vector.mult(this.velocity, this.WEIGHT);
 
-        // Particle cloud optimisation
         const r1 = random(0, 1);
         const r2 = random(0, 1);
 
         const personalBestTerm = p5.Vector.sub(this.personalBest, this.position).mult(this.C1 * r1);
         const regionalBestTerm = p5.Vector.sub(this.getRegionalBest(), this.position).mult(this.C2 * r2);
 
-        // Social forces
-        const particleRepulsionForce = this.calculateParticleRepulsiveForce(this.A, this.B)
-        const wallRepulsionForce = this.calculateWallRepulsiveForce(this.A, this.B)
+        const particleRepulsionForce = this.calculateParticleRepulsiveForce(this.A, this.B);
+        const wallRepulsionForce = this.calculateWallRepulsiveForce(this.A, this.B);
 
         const velocity = p5.Vector.add(currentVelocityTerm, personalBestTerm)
-                                    .add(regionalBestTerm)
-                                    .add(particleRepulsionForce)
-                                    .add(wallRepulsionForce);
+            .add(regionalBestTerm)
+            .add(particleRepulsionForce)
+            .add(wallRepulsionForce);
 
         return velocity.limit(this.MAX_SPEED);
     }
-    
+
     draw() {
         strokeWeight(FAT);
         fill(0);
@@ -143,20 +149,20 @@ class Particle {
 
     calculateParticleRepulsiveForce(A, B) {
         let repulsiveForce = createVector(0, 0);
-    
+
         for (let other of Scene.swarm) {
             if (other === this)
                 continue;
-    
+
             const distance = dist(this.position.x, this.position.y, other.position.x, other.position.y);
-    
-            if (distance < this.SIZE)  // Avoid division by zero or negative forces when too close
+
+            if (distance < this.SIZE)
                 continue;
-    
+
             const direction = p5.Vector.sub(this.position, other.position).normalize();
             const strength = A * (distance - this.SIZE) ** -B;
-            const repulsion = p5.Vector.mult(direction, strength)
-    
+            const repulsion = p5.Vector.mult(direction, strength);
+
             repulsiveForce.add(repulsion);
         }
 
@@ -173,50 +179,39 @@ class Particle {
 
         const direction = p5.Vector.sub(this.position, nearestWall).normalize();
         const strength = A * (distance - this.SIZE / 2) ** -B;
-        const repulsion = p5.Vector.mult(direction, strength)
+        const repulsion = p5.Vector.mult(direction, strength);
 
         return repulsion;
     }
 
     findNearestWall() {
-        let closestWall = createVector(0, 0)
+        let closestWall = createVector(0, 0);
         for (let wall of Scene.walls) {
-            const closestPoint = this.closestPointOnLine(wall.A, wall.B, this.position)
+            const closestPoint = this.closestPointOnLine(wall.A, wall.B, this.position);
             if (dist(this.position.x, this.position.y, closestPoint.x, closestPoint.y) < dist(this.position.x, this.position.y, closestWall.x, closestWall.y)) {
-                closestWall = closestPoint
+                closestWall = closestPoint;
             }
         }
-        return closestWall
+        return closestWall;
     }
 
-    // Fucntion from ChatGPT
     closestPointOnLine(A, B, P) {
-        // Vector AB
         let AB = p5.Vector.sub(B, A);
-      
-        // Vector AP
         let AP = p5.Vector.sub(P, A);
-      
-        // Project vector AP onto AB
         let t = AP.dot(AB) / AB.dot(AB);
-      
-        // Clamp t to the range [0, 1] to get the closest point on the line segment
         t = constrain(t, 0, 1);
-      
-        // Calculate the closest point
         let closest = p5.Vector.add(A, AB.mult(t));
-        
         return closest;
-      }
+    }
 
     getRegionalBest() {
-        const friends = this.getFriends(this.FIELD_OF_VIEW)
-        
+        const friends = this.getFriends(this.FIELD_OF_VIEW);
+
         if (friends.length == 0)
-            return this.personalBest
-        
+            return this.personalBest;
+
         const bestFriend = friends.reduce((best, current) => current.pbest_obj < best.pbest_obj ? current : best);
-        return bestFriend.personalBest
+        return bestFriend.personalBest;
     }
 
     getFriends(fieldOfView) {
@@ -227,17 +222,16 @@ class Particle {
     }
 
     getX() {
-        const roundedX = Math.round(this.position.x)
-        return constrain(roundedX, 1, Scene.width - 1)
+        const roundedX = Math.round(this.position.x);
+        return constrain(roundedX, 1, Scene.width - 1);
     }
 
     getY() {
-        const roundedY = Math.round(this.position.y)
-        return constrain(roundedY, 1, Scene.height - 1)
+        const roundedY = Math.round(this.position.y);
+        return constrain(roundedY, 1, Scene.height - 1);
     }
 }
 
-// Check if X can be updated without collisions (assumes walls are defined with lowest values first)
 function canUpdateX(new_x, current_pos) {
     for (let wall of Scene.walls) {
         if (current_pos.y > wall.A.y - 5 && current_pos.y < wall.B.y + 5) {
@@ -249,7 +243,6 @@ function canUpdateX(new_x, current_pos) {
     return true;
 }
 
-// Check if Y can be updated without collisions (assumes walls are defined with lowest values first)
 function canUpdateY(new_y, current_pos) {
     for (let wall of Scene.walls) {
         if (current_pos.x > wall.A.x - 5 && current_pos.x < wall.B.x + 5) {
@@ -261,42 +254,54 @@ function canUpdateY(new_y, current_pos) {
     return true;
 }
 
-// Objective function: returns score based on position
-function objective_function(x, y){
-    //return dist( x, y, Scene.target[0], Scene.target[1] )
-    return Scene.distance[x][y]
+function objective_function(x, y) {
+    return Math.min(Scene.distance[0][x][y], Scene.distance[1][x][y]);
 }
 
-function getDistances(){
-    Scene.distance[Scene.target[0]][Scene.target[1]] = 0
-    
-    const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]]
-  
-    const queue = [[Scene.target[0], Scene.target[1]]]
-    
-    while(queue.length > 0) {
-        const [x, y] =  queue.shift()
-        for (const [dx, dy] of directions){
-            const nx = x + dx
-            const ny = y + dy
-            
-            if (nx >= 0 && nx < Scene.width && ny >= 0 && ny < Scene.height && Scene.grid[nx][ny] != 1) {
-                if (Scene.distance[nx][ny] > Scene.distance[x][y] + 1) {
-                    Scene.distance[nx][ny] = Scene.distance[x][y] + 1
-                    queue.push([nx, ny])
+function getDistances() {
+    Scene.distance = [
+        Array.from({ length: Scene.width }, () => Array(Scene.height).fill(Infinity)),
+        Array.from({ length: Scene.width }, () => Array(Scene.height).fill(Infinity))
+    ];
+
+    function calculateDistances(targetIndex) {
+        const target = Scene.target[targetIndex];
+        Scene.distance[targetIndex][target[0]][target[1]] = 0;
+
+        const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+        const queue = [[target[0], target[1]]];
+
+        while (queue.length > 0) {
+            const [x, y] = queue.shift();
+            for (const [dx, dy] of directions) {
+                const nx = x + dx;
+                const ny = y + dy;
+
+                if (nx >= 0 && nx < Scene.width && ny >= 0 && ny < Scene.height && Scene.grid[nx][ny] != 1) {
+                    if (Scene.distance[targetIndex][nx][ny] > Scene.distance[targetIndex][x][y] + 1) {
+                        Scene.distance[targetIndex][nx][ny] = Scene.distance[targetIndex][x][y] + 1;
+                        queue.push([nx, ny]);
+                    }
                 }
             }
         }
     }
+
+    // Calculate distances for each target
+    for (let i = 0; i < Scene.target.length; i++) {
+        calculateDistances(i);
+    }
 }
+
 
 function createWalls(){
     Scene.walls = [
         new Wall(100, 100, 500, 100),
         new Wall(100, 100, 100, 500),
         new Wall(100, 500, 500, 500),
-        new Wall(500, 100, 500, 275),
-        new Wall(500, 325, 500, 500)
+        new Wall(500, 100, 500, 200),
+        new Wall(500, 250, 500, 350),
+        new Wall(500, 400, 500, 500)
     ]
   
     for (let wall of Scene.walls) {
@@ -309,6 +314,12 @@ function createWalls(){
 }
 
 function setup(){
+    halftime = false
+    finished = false
+    escapedParticles = 0
+    escapedParticlesHistory = []
+    escapedParticlesHistoryAllRuns = []
+  
 	createCanvas( Scene.width, Scene.height )
     createWalls()  
   
@@ -319,6 +330,8 @@ function setup(){
 	for (let i = 0; i < Scene.N; i++){
         Scene.swarm.push(new Particle())
 	}
+  
+    print(run)
 }
 
 function draw(){
@@ -335,23 +348,45 @@ function draw(){
 
     drawTarget()
     
+    // Add the number of particles escaped for this timestep
+    escapedParticlesHistory.push(escapedParticles)
+  
     recordMetrics()
 }
-
+  
 function recordMetrics() {
-    const escapedParticles = Scene.swarm.filter(it => it.position.x > 500).length
     if (!halftime && escapedParticles >= Scene.N / 2) {
-        print('Halftime: ' + millis() / 1000 + ' sec')
+        //print('Halftime: ' + millis() / 1000 + ' sec')
         halftime = true
     }
-    if (!finished && escapedParticles >= Scene.N) {
-        print('Finished: ' + millis() / 1000 + ' sec')
+    if (!finished && escapedParticles >= Scene.N - 5) {
+        //print('Finished: ' + millis() / 1000 + ' sec')
         finished = true
+        
+        // At the end of the run, add the particles escaped over time to array
+        Scene.escapedParticlesHistoryAllRuns.push(escapedParticlesHistory)
+        
+        if (run == nrOfRuns) {
+            let dataStrings = Scene.escapedParticlesHistoryAllRuns.map(row => row.join(','));
+            // Save the array to a text file
+            saveStrings(dataStrings, 'escapedParticlesHistory.txt');
+        }
+        else {
+            start_again()
+        }
     }
 }
 
 function drawTarget(){
-    strokeWeight(0)
-    fill( 255, 0, 0 )
-    ellipse( Scene.target[0], Scene.target[1], 7, 7 )
+    strokeWeight(0);
+    fill(255, 0, 0);
+    for (let target of Scene.target) {
+        ellipse(target[0], target[1], 7, 7);
+    }
+}
+  
+function start_again(){
+    clear()
+    run += 1
+    setup()
 }
