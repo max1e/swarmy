@@ -6,3 +6,5 @@ Different setups can be found in setups.txt. Replace the target at line 7 with t
 Below an image is added of what a run should look like mid-run, with the setup with two extis. The particles here are all moving towards the red dots (and disappearing before reaching the red dot when it is detected they have escaped the room)
 
 <img src="sample_run.png">
+
+Raw results of our experiments can be found in the "getresults" folder
