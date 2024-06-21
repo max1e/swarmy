@@ -32,7 +32,7 @@ plt.plot(average, color='orange', label='Average', linewidth=2)
 # Add labels and title
 plt.xlabel('Time Step')
 plt.ylabel('Particles escaped')
-plt.title('Particles escaped over time for each run')
+plt.title('Particles escaped over time - Wall')
 
 # Add legend
 plt.legend()

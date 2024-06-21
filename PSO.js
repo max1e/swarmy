@@ -356,26 +356,26 @@ function draw(){
   
 function recordMetrics() {
     if (!halftime && escapedParticles >= Scene.N / 2) {
-        //print('Halftime: ' + millis() / 1000 + ' sec')
-        halftime = true
+        // print('Halftime: ' + frameCount + ' frames');
+        halftime = true;
     }
     if (!finished && escapedParticles >= Scene.N - 5) {
-        //print('Finished: ' + millis() / 1000 + ' sec')
-        finished = true
+        // print('Finished: ' + frameCount + ' frames');
+        finished = true;
         
         // At the end of the run, add the particles escaped over time to array
-        Scene.escapedParticlesHistoryAllRuns.push(escapedParticlesHistory)
+        Scene.escapedParticlesHistoryAllRuns.push(escapedParticlesHistory);
         
         if (run == nrOfRuns) {
             let dataStrings = Scene.escapedParticlesHistoryAllRuns.map(row => row.join(','));
             // Save the array to a text file
             saveStrings(dataStrings, 'escapedParticlesHistory.txt');
-        }
-        else {
-            start_again()
+        } else {
+            start_again();
         }
     }
 }
+
 
 function drawTarget(){
     strokeWeight(0);
